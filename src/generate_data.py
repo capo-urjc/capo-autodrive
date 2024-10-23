@@ -45,11 +45,51 @@ from queue import Queue, Empty
 # 1) Choose the sensors
 SENSORS = [
     [
-        'CameraTest',
+        'CameraFront',
         {
             'bp': 'sensor.camera.rgb',
-            'image_size_x': 720, 'image_size_y': 1080, 'fov': 100,
-            'x': 0.7, 'y': 0.0, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0
+            'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
+            'x': 0.7, 'y': 0.0, 'z': 1.6, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0
+        },
+    ],
+    [
+        'CameraRightBackward',
+        {
+            'bp': 'sensor.camera.rgb',
+            'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
+            'x': 1.2, 'y': 0.95, 'z': 0.75, 'roll': 0.0, 'pitch': 0.0, 'yaw': 140.0
+        },
+    ],
+    [
+        'CameraLeftBackward',
+        {
+            'bp': 'sensor.camera.rgb',
+            'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
+            'x': 1.2, 'y': -0.95, 'z': 0.75, 'roll': 0.0, 'pitch': 0.0, 'yaw': -140.0
+        },
+    ],
+    [
+        'CameraRightForward',
+        {
+            'bp': 'sensor.camera.rgb',
+            'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
+            'x': 0.0, 'y': 0.95, 'z': 1.4, 'roll': 0.0, 'pitch': 0.0, 'yaw': 60.0
+        },
+    ],
+    [
+        'CameraLeftForward',
+        {
+            'bp': 'sensor.camera.rgb',
+            'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
+            'x': 0.0, 'y': -0.95, 'z': 1.4, 'roll': 0.0, 'pitch': 0.0, 'yaw': -60.0
+        },
+    ],
+    [
+        'CameraBackward',
+        {
+            'bp': 'sensor.camera.rgb',
+            'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
+            'x': -2.4, 'y': 0.0, 'z': 1.10, 'roll': 0.0, 'pitch': 0.0, 'yaw': 180.0
         },
     ],
     [
@@ -101,15 +141,51 @@ WEATHER = carla.WeatherParameters(
 # 3) Choose the recorder files
 RECORDER_INFO = [
     {
-        'folder': "data/ScenarioLogs/EnterActorFlow_slow",
-        'name': 'EnterActorFlow_slow',
+        'folder': "data/RouteLogs/0",
+        'name': 'Route0',
+        'start_time': 0,
+        'duration': 0
+    },
+    {
+        'folder': "data/RouteLogs/1",
+        'name': 'Route1',
+        'start_time': 0,
+        'duration': 0
+    },
+    {
+        'folder': "data/RouteLogs/2",
+        'name': 'Route2',
+        'start_time': 0,
+        'duration': 0
+    },
+    {
+        'folder': "data/RouteLogs/4",
+        'name': 'Route4',
+        'start_time': 0,
+        'duration': 0
+    },
+    {
+        'folder': "data/RouteLogs/5",
+        'name': 'Route5',
+        'start_time': 0,
+        'duration': 0
+    },
+    {
+        'folder': "data/RouteLogs/6",
+        'name': 'Route6',
+        'start_time': 0,
+        'duration': 0
+    },
+    {
+        'folder': "data/RouteLogs/7",
+        'name': 'Route7',
         'start_time': 0,
         'duration': 0
     }
 ]
 
 # 4) Choose the destination folder
-DESTINATION_FOLDER = "data/dataset"
+DESTINATION_FOLDER = "data/dataset/weather1"
 ################# End user simulation configuration ##################
 
 FPS = 20
