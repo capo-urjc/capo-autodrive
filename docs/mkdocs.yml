@@ -1,0 +1,6 @@
+site_name: CAPO autodrive documentation
+
+nav:
+  - Home: index.md
+
+theme: material
