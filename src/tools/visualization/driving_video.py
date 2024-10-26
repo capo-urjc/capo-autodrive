@@ -1,3 +1,5 @@
+import json
+
 import cv2
 import os
 import numpy as np
@@ -13,6 +15,32 @@ cameras = [
     'CameraBEV'
 ]
 
+
+def read_ego_logs(data_folder: str):
+    ego_logs_file = os.path.join(data_folder, "ego_logs.json")
+    with open(ego_logs_file, 'r', encoding='utf-8') as file:
+        ego_logs_data = json.load(file)
+    return ego_logs_data
+
+def to_words(snake_str):
+    return " ".join(x.capitalize() for x in snake_str.lower().split("_"))
+
+
+def plot_ego_data(frame: np.ndarray, ego_data: dict, top_y: int = 512):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    font_color = (255, 255, 255)  # White text
+    font_thickness = 1
+
+    y_pos = top_y + 20
+    x_pos = 20
+    for key in ego_data['control'].keys():
+        value = ego_data['control'][key]
+        cv2.putText(frame, f"{to_words(key)}: {value:.2f}", (x_pos, y_pos), font, font_scale, font_color, font_thickness,
+                    cv2.LINE_AA)
+        y_pos += 20
+
+        
 def generate_video(data_folder: str, output_video: str):
     cameras_data = {}
     lengths = []
@@ -26,7 +54,11 @@ def generate_video(data_folder: str, output_video: str):
     fps = 20
 
     # Ensure both cameras have the same number of frames for syncing
-    assert len(set(lengths)), "Camera image sequences are not the same length."
+    assert len(set(lengths))==1, "Camera image sequences are not the same length."
+
+    ego_logs_data = read_ego_logs(data_folder=data_folder)
+    assert 'records' in ego_logs_data, "Ego log data not found inside file"
+    assert len(ego_logs_data['records']) == lengths[0], "Ego log data doesn't contain the correct number of frames"
 
     # Read the first image to get dimensions
     # 900x256 - cameras
@@ -65,6 +97,11 @@ def generate_video(data_folder: str, output_video: str):
             )
 
             final_frame = np.vstack((row1, row2, bev_padded))
+
+            # Extract specific ego data fields for overlay
+            ego_data = ego_logs_data['records'][i]
+            plot_ego_data(frame=final_frame, ego_data=ego_data, top_y=512)
+
             video.write(final_frame)
             pbar.update(1)
 
