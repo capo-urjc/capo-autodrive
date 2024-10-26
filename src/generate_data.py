@@ -45,7 +45,7 @@ from queue import Queue, Empty
 # 1) Choose the sensors
 SENSORS = [
     [
-        'CameraFront',
+        'CameraForward',
         {
             'bp': 'sensor.camera.rgb',
             'image_size_x': 900, 'image_size_y': 256, 'fov': 100,
@@ -93,6 +93,14 @@ SENSORS = [
         },
     ],
     [
+        'CameraBEV',
+        {
+            'bp': 'sensor.camera.semantic_segmentation',
+            'image_size_x': 512, 'image_size_y': 512, 'fov': 50,
+            'x': 0.0, 'y': 0.0, 'z': 50.0, 'roll': 0.0, 'pitch': -90.0, 'yaw': 0.0
+        },
+    ],
+    [
         'LidarTest',
         {
             'bp': 'sensor.lidar.ray_cast',
@@ -136,43 +144,14 @@ WEATHER = carla.WeatherParameters(
     sun_azimuth_angle=-1.0, sun_altitude_angle=70.0,
     cloudiness=30.0, precipitation=0.0, precipitation_deposits=80.0, wetness=15.0,
     wind_intensity=10.0,
-    fog_density=2.0, fog_distance=0.0, fog_falloff=0.0)
+    fog_density=2.0, fog_distance=0.0, fog_falloff=0.0
+)
 
 # 3) Choose the recorder files
 RECORDER_INFO = [
     {
-        'folder': "data/RouteLogs/0",
-        'name': 'Route0',
-        'start_time': 0,
-        'duration': 0
-    },
-    {
-        'folder': "data/RouteLogs/1",
-        'name': 'Route1',
-        'start_time': 0,
-        'duration': 0
-    },
-    {
-        'folder': "data/RouteLogs/2",
-        'name': 'Route2',
-        'start_time': 0,
-        'duration': 0
-    },
-    {
         'folder': "data/RouteLogs/4",
         'name': 'Route4',
-        'start_time': 0,
-        'duration': 0
-    },
-    {
-        'folder': "data/RouteLogs/5",
-        'name': 'Route5',
-        'start_time': 0,
-        'duration': 0
-    },
-    {
-        'folder': "data/RouteLogs/6",
-        'name': 'Route6',
         'start_time': 0,
         'duration': 0
     },
@@ -260,7 +239,10 @@ def save_data_to_disk(sensor_id, frame, data, imu_data, endpoint):
     CURRENT_THREADS += 1
     if isinstance(data, carla.Image):
         sensor_endpoint = f"{endpoint}/{sensor_id}/{frame}.png"
-        data.save_to_disk(sensor_endpoint)
+        if sensor_id == 'CameraBEV':
+            data.save_to_disk(sensor_endpoint, carla.ColorConverter.CityScapesPalette)
+        else:
+            data.save_to_disk(sensor_endpoint)
 
     elif isinstance(data, carla.LidarMeasurement):
         sensor_endpoint = f"{endpoint}/{sensor_id}/{frame}.ply"
