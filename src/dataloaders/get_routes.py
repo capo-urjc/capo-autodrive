@@ -47,6 +47,7 @@ def generate_config_csv(root_folder, output_csv="config_folders.csv"):
     # Ordena la lista de subcarpetas alfabéticamente
     subfolders.sort(key=lambda x: x[1])  # Ordenar por la ruta de las carpetas
 
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
     # Genera el archivo CSV con una columna de selección y el número de archivos
     with open(output_csv, mode='w', newline='') as csv_file:
         writer = csv.writer(csv_file)
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     # Configuración de argumentos de línea de comando
     parser = argparse.ArgumentParser(description="Genera un archivo CSV con subcarpetas de una carpeta raíz.")
     parser.add_argument("--root_folder", type=str, default='data/dataset', help="Ruta de la carpeta raíz a explorar")
-    parser.add_argument("--output_csv", type=str, default="src/data/config_folders.csv", help="Nombre del archivo CSV de salida (por defecto: config_folders.csv)")
+    parser.add_argument("--output_csv", type=str, default="src/dataloaders/csv/config_folders.csv", help="Nombre del archivo CSV de salida (por defecto: config_folders.csv)")
 
     # Parsear los argumentos de la línea de comando
     args = parser.parse_args()
