@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 import torch
-from torch.utils.data import Dataset
-
+from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms.functional import resize
 from src.dataloaders.utils import sensor_code
 
 
@@ -23,7 +23,7 @@ class AutodriveDataset(Dataset):
         - csv_file (str): Path to the csv folder with route loading information
         - seq_len (int): Sequence length
         - transform (callable, optional): Transformation to apply to data
-        - sensors (list(str)): List of sensors to load from  from src.dataloaders.utils import sensor_code
+        - sensors (list(str)): List of sensors to load from from src.dataloaders.utils import sensor_code
         """
         self.seq_len = seq_len
         self.transform = transform
@@ -96,6 +96,7 @@ class AutodriveDataset(Dataset):
         seq = []
         for i in sequence_indices:
             image = Image.open(os.path.join(path, str(i) + '.png'))
+            image = image.convert("RGB")
             image_array = np.array(image).transpose((2, 0, 1))
             seq.append(image_array)
 
@@ -131,18 +132,29 @@ class AutodriveDataset(Dataset):
 
 if __name__ == "__main__":
     csv_file = "src/dataloaders/csv/config_folders.csv"
-    dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_bev', 'gnss', 'imu', 'lidar', 'radar'])
+    # dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_bev', 'gnss', 'imu', 'lidar', 'radar'])
+    dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f'])
+    #
+    # random = np.random.randint(0, dataset.__len__())
+    # data1 = dataset.__getitem__(random)
+    #
+    # random = np.random.randint(0, dataset.__len__())
+    # data1 = dataset.__getitem__(random)
+    #
+    # random = np.random.randint(0, dataset.__len__())
+    # data1 = dataset.__getitem__(random)
 
-    random = np.random.randint(0, dataset.__len__())
-    data1 = dataset.__getitem__(random)
+    dinov2_vits14 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
 
-    random = np.random.randint(0, dataset.__len__())
-    data1 = dataset.__getitem__(random)
+    dl = DataLoader(dataset, batch_size=2, shuffle=True)
 
-    random = np.random.randint(0, dataset.__len__())
-    data1 = dataset.__getitem__(random)
+    for batch in dl:
+        img = batch['rgb_f']
+        img = img.reshape((10, 3, 256, 900))
+        img = img / 255.
+        img = resize(img, (224, 448))
+        pred = dinov2_vits14(img)
 
-    print()
 
 
 
