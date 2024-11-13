@@ -8,7 +8,10 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.functional import resize
 from src.dataloaders.utils import sensor_code
+import json
 
+from transformations import ControlTransform, ImageNormalization
+from torchvision import transforms
 
 class AutodriveDataset(Dataset):
     """
@@ -67,9 +70,9 @@ class AutodriveDataset(Dataset):
         sequence_indices = list(range(start_index_within_folder, start_index_within_folder + self.seq_len))
 
         # Create a dictionary with each sensor key pointing to an empty list
-        sensor_dict = {sensor: None for sensor in self.sensors}
+        keys = {sensor: None for sensor in self.sensors}
 
-        for key in sensor_dict:
+        for key in keys:
 
             if key not in sensor_code.keys():
                 raise KeyError('A unavailable sensor has been queried. Check the list of sensors: ' + str(sensor_code.keys()))
@@ -84,13 +87,16 @@ class AutodriveDataset(Dataset):
             elif 'radar' in key:
                 # TODO: Check how to load radar info since it contains several rows for each rgb frame
                 seq = self.load_radar(data_path, sequence_indices)
+            elif 'control' in key:
+                records = json.load(open(data_path))['records']
+                seq = [records[i] for i in sequence_indices]
 
-            sensor_dict[key] = seq
+            keys[key] = seq
 
         if self.transform:
-            sensor_dict = self.transform(sensor_dict)
+            keys = self.transform(keys)
 
-        return sensor_dict
+        return keys
 
     def load_rgb(self, path, sequence_indices):
         seq = []
@@ -133,7 +139,11 @@ class AutodriveDataset(Dataset):
 if __name__ == "__main__":
     csv_file = "src/dataloaders/csv/config_folders.csv"
     # dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_bev', 'gnss', 'imu', 'lidar', 'radar'])
-    dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f'])
+    transforms = transforms.Compose([
+        ImageNormalization(),
+        ControlTransform()
+    ])
+    dataset = AutodriveDataset(csv_file, seq_len=5, transform=transforms, sensors=['rgb_f', 'control'])
     #
     # random = np.random.randint(0, dataset.__len__())
     # data1 = dataset.__getitem__(random)
@@ -144,17 +154,18 @@ if __name__ == "__main__":
     # random = np.random.randint(0, dataset.__len__())
     # data1 = dataset.__getitem__(random)
 
-    dinov2_vits14 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+    from src.models.encoders import Dinov2Enc
+    # dinov2_vits14 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+    dinov2_vits14 = Dinov2Enc()
 
     dl = DataLoader(dataset, batch_size=2, shuffle=True)
 
     for batch in dl:
         img = batch['rgb_f']
-        img = img.reshape((10, 3, 256, 900))
-        img = img / 255.
-        img = resize(img, (224, 448))
-        pred = dinov2_vits14(img)
+        control = batch['control']
 
+        pred = dinov2_vits14(img)
+        print(1)
 
 
 

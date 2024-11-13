@@ -11,6 +11,7 @@ sensor_code = {
     'gnss':     'GnssTest',
     'imu':      'IMUTest',
     'lidar':    'LidarTest',
-    'radar':    'RADARTest'
+    'radar':    'RADARTest',
+    'control':  'ego_logs.json',
 
 }
