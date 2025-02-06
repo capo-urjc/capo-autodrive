@@ -307,3 +307,6 @@ site*/
 data/
 data
 output/
+scenario_runner/
+scenario_runner
+*.mp4

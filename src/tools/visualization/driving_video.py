@@ -102,6 +102,10 @@ def generate_video(data_folder: str, output_video: str):
             ego_data = ego_logs_data['records'][i]
             plot_ego_data(frame=final_frame, ego_data=ego_data, top_y=512)
 
+            if i==0:
+                output_folder = os.path.dirname(output_video)
+                cv2.imwrite(os.path.join(output_folder, "poster.png"), final_frame)
+
             video.write(final_frame)
             pbar.update(1)
 

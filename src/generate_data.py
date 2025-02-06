@@ -6,32 +6,36 @@
 # This work is licensed under the terms of the MIT license.
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
-"""
-Welcome to the capture sensor data script, a script that provides users with a baseline for data collection,
-which they can later modify to their specific needs, easying the process of creating a database.
-
-This script will start with a CARLA recorder log, spawning the desired sensor configuration at the ego vehicle,
-and saving their data into a folder.
-
-At the end of the recorder, all replayed actors will be destroyed,and take note
-that the recorder teleports the vehicle, so no dynamic information can be gathered from them.
-If the record has a `log.json`, the IMU can be used to extract information about the ego vehicle.
-
-Modify the parameters at the very top of the script to match the desired use-case:
-
-- SENSORS: List of all the sensors tha will be spawned in the simulation
-- WEATHER: Weather of the simulation
-- RECORDER_INFO: List of all the CARLA recorder logs that will be run. Each recorder has four elements:
-    Â· folder: path to the folder with the recorder files
-    Â· name: name of the endpoint folder
-    Â· start_time: start time of the recorder
-    Â· duration: duration of the recorder. 0 to replay it until the end
-- DESTINATION_FOLDER: folder where all sensor data will be stored
-
-"""
-
+# """
+# Welcome to the capture sensor data script, a script that provides users with a baseline for data collection,
+# which they can later modify to their specific needs, easying the process of creating a database.
+#
+# This script will start with a CARLA recorder log, spawning the desired sensor configuration at the ego vehicle,
+# and saving their data into a folder.
+#
+# At the end of the recorder, all replayed actors will be destroyed,and take note
+# that the recorder teleports the vehicle, so no dynamic information can be gathered from them.
+# If the record has a `log.json`, the IMU can be used to extract information about the ego vehicle.
+#
+# Modify the parameters at the very top of the script to match the desired use-case:
+#
+# - SENSORS: List of all the sensors tha will be spawned in the simulation
+# - WEATHER: Weather of the simulation
+# - RECORDER_INFO: List of all the CARLA recorder logs that will be run. Each recorder has four elements:
+#     Â· folder: path to the folder with the recorder files
+#     Â· name: name of the endpoint folder
+#     Â· start_time: start time of the recorder
+#     Â· duration: duration of the recorder. 0 to replay it until the end
+# - DESTINATION_FOLDER: folder where all sensor data will be stored
+#
+# """
+import logging
+import pathlib
+import signal
+import sys
 import time
 import os
+
 import carla
 import argparse
 import random
@@ -40,6 +44,8 @@ import threading
 import glob
 
 from queue import Queue, Empty
+
+from src.simulation.runner import CARLAServerRunner
 
 ################### User simulation configuration ####################
 # 1) Choose the sensors
@@ -104,6 +110,7 @@ SENSORS = [
         'LidarTest',
         {
             'bp': 'sensor.lidar.ray_cast',
+            'bp': 'sensor.lidar.ray_cast',
             'x': 0.7, 'y': 0.0, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
             'range': 85, 'rotation_frequency': 10, 'channels': 64, 'upper_fov': 10,
             'lower_fov': -30, 'points_per_second': 600000, 'atmosphere_attenuation_rate': 0.004,
@@ -150,14 +157,14 @@ WEATHER = carla.WeatherParameters(
 # 3) Choose the recorder files
 RECORDER_INFO = [
     {
-        'folder': "data/RouteLogs/4",
-        'name': 'Route4',
+        'folder': "data/ScenarioLogs/Accident",
+        'name': 'Accident_debug1',
         'start_time': 0,
         'duration': 0
     },
     {
-        'folder': "data/RouteLogs/7",
-        'name': 'Route7',
+        'folder': "data/ScenarioLogs/Accident",
+        'name': 'Accident_debug2',
         'start_time': 0,
         'duration': 0
     }
@@ -172,6 +179,110 @@ THREADS = 5
 CURRENT_THREADS = 0
 AGENT_TICK_DELAY = 10
 
+
+def generate_recorder_info(origin_folder: str):
+    folders = [d for d in os.listdir(origin_folder) if os.path.isdir(os.path.join(origin_folder, d))]
+    recorder_info = []
+    for folder in folders:
+        full_folder = os.path.join(origin_folder, folder)
+        log_file = next((file.name for file in pathlib.Path(full_folder).iterdir() if file.is_file() and file.suffix == ".log"), None)
+        destination = os.path.splitext(log_file)[0]
+
+        if log_file and not os.path.exists(os.path.join(DESTINATION_FOLDER, destination)):
+            recorder_info.append({
+                'folder': full_folder,
+                'name': destination,
+                'start_time': 0,
+                'duration': 0
+            })
+
+    return recorder_info
+
+# def run_carla_server():
+#     print(f"Starting CARLA simulation")
+#     carla_root = os.getenv("CARLA_ROOT")
+#     bin_file = f"{carla_root}/CarlaUE4/Binaries/Linux/CarlaUE4-Linux-Shipping"
+#
+#     command = [
+#         bin_file,
+#         "CarlaUE4",
+#         "-quality-level=Epic",
+#         "-world-port=2000",
+#         "-resx=800",
+#         "-resy=600",
+#         "-opengl",
+#         "-RenderOffScreen"
+#     ]
+#
+#     carla_process = subprocess.Popen(
+#         command,
+#         stdout=subprocess.PIPE,
+#         stderr=subprocess.PIPE,
+#         text=True,
+#         cwd=carla_root  # Set the working directory for the command
+#     )
+#
+#     log_message = "4.26.2-0+++UE4+Release-4.26 522 0"
+#     wait_for_log_message(carla_process, log_message)
+#     print(f"Carla simulation started")
+#     return carla_process
+#
+# def wait_for_log_message(process, target_message):
+#     """
+#     Wait for a specific log message in the process's stdout.
+#     """
+#     print("Waiting for log message...")
+#     while True:
+#         output = process.stdout.readline()  # Read a single line from the process's stdout
+#         if output == "" and process.poll() is not None:
+#             # Process has ended, exit loop
+#             raise RuntimeError("Process ended before the target message was found.")
+#         if target_message in output:
+#             print(f"Found target message: {target_message}")
+#             break
+#         print(output.strip())
+#
+# def terminate_process(process: Popen):
+#     print("Waiting for CARLA to stop...")
+#     if process_is_alive(process):
+#         try:
+#             # process.terminate()
+#             os.kill(process.pid, signal.SIGINT)
+#             process.wait()
+#         except subprocess.TimeoutExpired:
+#             print("Graceful termination failed. Force killing CARLA server...")
+#             process.kill()
+#             process.wait()
+#         print("CARLA stopped.")
+#     else:
+#         print("CARLA is no longer running")
+#
+# def process_is_alive(process: Popen):
+#     return process.poll() is None
+
+def connect_to_server(host, port, timeout: int = 20, max_retries: int = 5, retry_interval: int = 5):
+    # Initialize the simulation
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"Attempt {attempt} to connect to CARLA server...")
+            client = carla.Client(host, port)
+            client.set_timeout(timeout)
+            world = client.get_world()
+            print("Successfully connected to CARLA server.")
+
+            # Hace falta resetear el timeout al que usaba el script originalmente
+            # si no, otros comandos que tardan más de "timeout" segundo podrían fallar
+            client.set_timeout(120)
+            return client, world
+        except Exception as e:
+            print(f"Connection attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                print(f"Retrying in {retry_interval} seconds...")
+                time.sleep(retry_interval)
+            else:
+                raise Exception("Exceeded maximum retries. CARLA server is not ready.")
+
+    return None, None
 
 def create_folders(endpoint, sensors):
     for sensor_id, sensor_bp in sensors:
@@ -367,24 +478,40 @@ def set_endpoint(recorder_info):
     return endpoint
 
 
-def main():
+def signal_processor(signum, frame):
+    print(f"SIGNAL {signum} received")
 
+
+def main():
     argparser = argparse.ArgumentParser(description=__doc__)
     argparser.add_argument('--host', default='127.0.0.1', help='IP of the host server (default: 127.0.0.1)')
     argparser.add_argument('--port', default=2000, type=int, help='TCP port to listen to (default: 2000)')
     args = argparser.parse_args()
     print(__doc__)
 
+    signal.signal(signal.SIGABRT, signal_processor)
+
+    # RECORDER_INFO = generate_recorder_info("data/ScenarioLogs")
     active_sensors = []
+    world = None
+    client = None
+    carla_runner = CARLAServerRunner(port=args.port)
 
     try:
-
-        # Initialize the simulation
-        client = carla.Client(args.host, args.port)
-        client.set_timeout(120.0)
-        world = client.get_world()
+        #####
+        # Arrancar UNREAL
+        #####
+        carla_runner.start_carla()
 
         for recorder_info in RECORDER_INFO:
+            #####
+            # Ahora se puede conectar el cliente
+            #####
+            client, world = connect_to_server(args.host, args.port)
+
+            # time.sleep(10)
+            # carla_runner.terminate_carla()
+            # exit()
 
             print(f"\n\033[1m> Getting the recorder information\033[0m")
             recorder_folder = recorder_info['folder']
@@ -405,6 +532,7 @@ def main():
             recorder_str = client.show_recorder_file_info(recorder_path, False)
 
             recorder_map = recorder_str.split("\n")[1][5:]
+            client.set_timeout(240)
             world = client.load_world(recorder_map)
             world.tick()
 
@@ -442,7 +570,12 @@ def main():
                 fd.write(recorder_str)
             world.tick()
 
-
+            #####
+            # Aquí obtiene el EGO vehiculo, recorriendo la lista de vehículos spawneados en el primer frame
+            # y buscando el que tiene atributo hero
+            # Se puede obtener localizando el ID en el fichero de log y luego haciendo
+            #       world.get_actor(id)
+            #####
             hero = None
             while hero is None:
                 possible_vehicles = world.get_actors().filter('vehicle.*')
@@ -452,6 +585,10 @@ def main():
                         break
                 time.sleep(1)
 
+            #####
+            # Aquí crea los sensores, adjuntandolos al vehiculo en las posiciones relativas especificadas
+            # en la configuración de cada sensor
+            #####
             print(f"\033[1m> Creating the sensors\033[0m")
             create_folders(endpoint, [[s[0], s[1].get('bp')] for s in SENSORS])
             blueprint_library = world.get_blueprint_library()
@@ -478,6 +615,9 @@ def main():
                 add_listener(sensor, sensor_queue, sensor_id)
                 active_sensors.append(sensor)
 
+            #####
+            # Ni idea de por que hace estos 10 ticks
+            #####
             for _ in range(10):
                 world.tick()
 
@@ -529,6 +669,11 @@ def main():
                     if missing_sensors <= 0:
                         break
 
+                #####
+                # Este sería un buen lugar para grabar la información que necesitemos
+                #####
+                vehicle_control = hero.get_control()
+
                 world.tick()
 
             for res in results:
@@ -542,6 +687,29 @@ def main():
             for _ in range(50):
                 world.tick()
 
+            #####
+            # Aqui se finaliza carla
+            #####
+            # set fixed time step length
+            settings = world.get_settings()
+            settings.fixed_delta_seconds = None
+            settings.synchronous_mode = False
+            world.apply_settings(settings)
+
+            # Remove all replay actors
+            client.stop_replayer(False)
+            client.apply_batch(
+                [carla.command.DestroyActor(x.id) for x in world.get_actors().filter('static.prop.mesh')])
+            world.wait_for_tick()
+            for v in world.get_actors().filter('*vehicle*'):
+                v.destroy()
+            world.wait_for_tick()
+
+        carla_runner.terminate_carla()
+
+    except Exception as e:
+        logger.exception(e)
+
     # End the simulation
     finally:
         # stop and remove cameras
@@ -550,21 +718,38 @@ def main():
             sensor.destroy()
 
         # set fixed time step length
-        settings = world.get_settings()
-        settings.fixed_delta_seconds = None
-        settings.synchronous_mode = False
-        world.apply_settings(settings)
+        if world:
+            settings = world.get_settings()
+            settings.fixed_delta_seconds = None
+            settings.synchronous_mode = False
+            world.apply_settings(settings)
 
         # Remove all replay actors
-        client.stop_replayer(False)
-        client.apply_batch([carla.command.DestroyActor(x.id) for x in world.get_actors().filter('static.prop.mesh')])
-        world.wait_for_tick()
-        for v in world.get_actors().filter('*vehicle*'):
-            v.destroy()
-        world.wait_for_tick()
+        if client:
+            client.stop_replayer(False)
+            client.apply_batch([carla.command.DestroyActor(x.id) for x in world.get_actors().filter('static.prop.mesh')])
+
+        if world:
+            world.wait_for_tick()
+            for v in world.get_actors().filter('*vehicle*'):
+                v.destroy()
+            world.wait_for_tick()
+
+        carla_runner.terminate_carla()
 
 
 if __name__ == '__main__':
+    # Create the logger
+    logger = logging.root
+    logger.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
     try:
         main()

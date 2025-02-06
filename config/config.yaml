@@ -1,0 +1,185 @@
+sensors:
+  - name: CameraForward
+    bp: sensor.camera.rgb
+    image_size_x: 900
+    image_size_y: 256
+    fov: 100
+    x: 0.7
+    y: 0.0
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+
+  - name: CameraRightBackward
+    bp: sensor.camera.rgb
+    image_size_x: 900
+    image_size_y: 256
+    fov: 100
+    x: 1.2
+    y: 0.95
+    z: 0.75
+    roll: 0.0
+    pitch: 0.0
+    yaw: 140.0
+
+  - name: CameraLeftBackward
+    bp: sensor.camera.rgb
+    image_size_x: 900
+    image_size_y: 256
+    fov: 100
+    x: 1.2
+    y: -0.95
+    z: 0.75
+    roll: 0.0
+    pitch: 0.0
+    yaw: -140.0
+
+  - name: CameraRightForward
+    bp: sensor.camera.rgb
+    image_size_x: 900
+    image_size_y: 256
+    fov: 100
+    x: 0.0
+    y: 0.95
+    z: 1.4
+    roll: 0.0
+    pitch: 0.0
+    yaw: 60.0
+
+  - name: CameraLeftForward
+    bp: sensor.camera.rgb
+    image_size_x: 900
+    image_size_y: 256
+    fov: 100
+    x: 0.0
+    y: -0.95
+    z: 1.4
+    roll: 0.0
+    pitch: 0.0
+    yaw: -60.0
+
+  - name: CameraBackward
+    bp: sensor.camera.rgb
+    image_size_x: 900
+    image_size_y: 256
+    fov: 100
+    x: -2.4
+    y: 0.0
+    z: 1.10
+    roll: 0.0
+    pitch: 0.0
+    yaw: 180.0
+
+  - name: CameraBEV
+    bp: sensor.camera.semantic_segmentation
+    image_size_x: 512
+    image_size_y: 512
+    fov: 50
+    x: 0.0
+    y: 0.0
+    z: 50.0
+    roll: 0.0
+    pitch: -90.0
+    yaw: 0.0
+
+  - name: LidarTest
+    bp: sensor.lidar.ray_cast
+    x: 0.7
+    y: 0.0
+    z: 1.60
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    range: 85
+    rotation_frequency: 10
+    channels: 64
+    upper_fov: 10
+    lower_fov: -30
+    points_per_second: 600000
+    atmosphere_attenuation_rate: 0.004
+    dropoff_general_rate: 0.45
+    dropoff_intensity_limit: 0.8
+    dropoff_zero_intensity: 0.4
+
+  - name: RADARTest
+    bp: sensor.other.radar
+    x: 0.7
+    y: 0.0
+    z: 1.60
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    points_per_second: 1500
+    range: 100
+
+  - name: GnssTest
+    bp: sensor.other.gnss
+    x: 0.7
+    y: 0.0
+    z: 1.60
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    noise_alt_stddev: 0.000005
+    noise_lat_stddev: 0.000005
+    noise_lon_stddev: 0.000005
+    noise_alt_bias: 0.0
+    noise_lat_bias: 0.0
+    noise_lon_bias: 0.0
+
+  - name: IMUTest
+    bp: sensor.other.imu
+    x: 0.7
+    y: 0.0
+    z: 1.60
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    noise_accel_stddev_x: 0.001
+    noise_accel_stddev_y: 0.001
+    noise_accel_stddev_z: 0.015
+    noise_gyro_stddev_x: 0.001
+    noise_gyro_stddev_y: 0.001
+    noise_gyro_stddev_z: 0.001
+
+weather:
+  sun_azimuth_angle: -1.0
+  sun_altitude_angle: 70.0
+  cloudiness: 30.0
+  precipitation: 0.0
+  precipitation_deposits: 80.0
+  wetness: 15.0
+  wind_intensity: 10.0
+  fog_density: 2.0
+  fog_distance: 0.0
+  fog_falloff: 0.0
+
+server:
+  host: 127.0.0.1
+  port: 2000
+
+simulation:
+  fps: 20
+  save_threads: 5
+  agent_tick_delay: 10
+
+files:
+  destination_folder: "data/dataset/debug"
+  recordings_folder: "data/ScenarioLogs"
+
+recordings:
+  - folder: "data/RouteLogs/0"
+    name: "Route0"
+    start_time: 0
+    duration: 0
+
+  - folder: "data/RouteLogs/1"
+    name: "Route1"
+    start_time: 0
+    duration: 0
+
+  - folder: "data/RouteLogs/2"
+    name: "Route2"
+    start_time: 0
+    duration: 0
