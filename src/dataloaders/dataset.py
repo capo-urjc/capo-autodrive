@@ -10,7 +10,7 @@ from torchvision.transforms.functional import resize
 from src.dataloaders.utils import sensor_code
 import json
 
-from transformations import ControlTransform, ImageNormalization
+from src.dataloaders.transformations import RecordsTransform, ImageNormalization
 from torchvision import transforms
 
 class AutodriveDataset(Dataset):
@@ -18,7 +18,7 @@ class AutodriveDataset(Dataset):
     Clase para cargar un dataset personalizado basado en un archivo CSV de configuración.
     """
 
-    def __init__(self, csv_file, seq_len=5, transform=None, sensors=['rgb_f']):
+    def __init__(self, csv_file, seq_len=5, transform=None, sensors=['rgb_f'], use_encoded_images=False):
         """
         Inicializa el dataset.
 
@@ -26,7 +26,7 @@ class AutodriveDataset(Dataset):
         - csv_file (str): Path to the csv folder with route loading information
         - seq_len (int): Sequence length
         - transform (callable, optional): Transformation to apply to data
-        - sensors (list(str)): List of sensors to load from from src.dataloaders.utils import sensor_code
+        - sensors (list(str)): List of sensors to load from src.dataloaders.utils import sensor_code
         """
         self.seq_len = seq_len
         self.transform = transform
@@ -34,6 +34,9 @@ class AutodriveDataset(Dataset):
         self.n_samples =  self.data_frame['File Count'].sum() - seq_len
 
         self.sensors = sensors
+        self.use_encoded_images = use_encoded_images
+        if use_encoded_images:
+            self.backbone_name = 'dinov2_vitb14_reg_lc.npy'
 
     def process_dataframe(self, csv_file):
         data_frame = pd.read_csv(csv_file)
@@ -79,7 +82,7 @@ class AutodriveDataset(Dataset):
 
             data_path = os.path.join(folder_path, sensor_code[key])
             if 'rgb' in key:
-                seq = self.load_rgb(data_path, sequence_indices)
+                seq = self.load_rgb(data_path, sequence_indices, self.use_encoded_images)
             elif 'gnss' in key or 'imu' in key:
                 seq = self.load_gnss_imu(data_path, sequence_indices)
             elif 'lidar' in key:
@@ -87,9 +90,11 @@ class AutodriveDataset(Dataset):
             elif 'radar' in key:
                 # TODO: Check how to load radar info since it contains several rows for each rgb frame
                 seq = self.load_radar(data_path, sequence_indices)
-            elif 'control' in key:
-                records = json.load(open(data_path))['records']
-                seq = [records[i] for i in sequence_indices]
+            elif 'records' in key:
+                # records = json.load(open(data_path))['records']
+                # seq = [records[i] for i in sequence_indices]
+                records = pd.read_csv(data_path)
+                seq = records.iloc[sequence_indices]
 
             keys[key] = seq
 
@@ -98,15 +103,21 @@ class AutodriveDataset(Dataset):
 
         return keys
 
-    def load_rgb(self, path, sequence_indices):
-        seq = []
-        for i in sequence_indices:
-            image = Image.open(os.path.join(path, str(i) + '.png'))
-            image = image.convert("RGB")
-            image_array = np.array(image).transpose((2, 0, 1))
-            seq.append(image_array)
+    def load_rgb(self, path, sequence_indices, use_coded_images=False):
 
-        return np.array(seq)
+        if use_coded_images:
+            seq = np.load(path+'/'+self.backbone_name)
+            seq = seq[sequence_indices]
+        else:
+            seq = []
+            for i in sequence_indices:
+                image = Image.open(os.path.join(path, str(i) + '.png'))
+                image = image.convert("RGB")
+                image_array = np.array(image).transpose((2, 0, 1))
+                seq.append(image_array)
+            seq = np.array(seq)
+
+        return seq
 
     def load_gnss_imu(self, path, sequence_indices):
         data_frame = self._load_from_dataframe(path)
@@ -139,34 +150,32 @@ class AutodriveDataset(Dataset):
 if __name__ == "__main__":
     csv_file = "src/dataloaders/csv/config_folders.csv"
     # dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_bev', 'gnss', 'imu', 'lidar', 'radar'])
-    transforms = transforms.Compose([
+    transform = transforms.Compose([
         ImageNormalization(),
-        ControlTransform()
+        RecordsTransform(),
     ])
-    dataset = AutodriveDataset(csv_file, seq_len=5, transform=transforms, sensors=['rgb_f', 'control'])
-    #
-    # random = np.random.randint(0, dataset.__len__())
-    # data1 = dataset.__getitem__(random)
-    #
-    # random = np.random.randint(0, dataset.__len__())
-    # data1 = dataset.__getitem__(random)
-    #
-    # random = np.random.randint(0, dataset.__len__())
-    # data1 = dataset.__getitem__(random)
+    # dataset = AutodriveDataset(csv_file, seq_len=10, transform=transform, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_lb', 'rgb_rb', 'rgb_b', 'records'], use_encoded_images=False)
+    dataset = AutodriveDataset(csv_file, seq_len=10, transform=transform, sensors=['rgb_f', 'records'], use_encoded_images=True)
 
-    from src.models.encoders import Dinov2Enc
-    # dinov2_vits14 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
-    dinov2_vits14 = Dinov2Enc()
+    #
+    random = np.random.randint(0, dataset.__len__())
+    data1 = dataset.__getitem__(random)
+    print(f'Length of dataset: {dataset.__len__()}')
 
-    dl = DataLoader(dataset, batch_size=2, shuffle=True)
+    dl = DataLoader(dataset, batch_size=16, shuffle=False)
 
-    for batch in dl:
+    import time
+    from tqdm import tqdm
+    start_time = time.time()  # Start timer
+
+    for batch in tqdm(dl):
         img = batch['rgb_f']
-        control = batch['control']
+        wps = batch['wps']
 
-        pred = dinov2_vits14(img)
-        print(1)
+    end_time = time.time()  # End timer
 
+    execution_time = end_time - start_time
+    print(f"Total execution time: {execution_time:.6f} seconds")
 
 
 

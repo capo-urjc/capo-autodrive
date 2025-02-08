@@ -56,7 +56,10 @@ class Dinov2Enc(nn.Module):
         x_resized = self.center_crop_tensor(x, output_size=output_size)
         latent = self.dino(x_resized)
 
-        latent = latent.reshape(b, -1) # (batch x [384 * 5])
+        latent = latent.reshape(b, s, -1) # (batch x [384 * 5])
 
         return latent
+
+
+
 

@@ -12,6 +12,11 @@ sensor_code = {
     'imu':      'IMUTest',
     'lidar':    'LidarTest',
     'radar':    'RADARTest',
-    'control':  'ego_logs.json',
-
+    'records':  'ego_log.csv',
 }
+
+
+
+
+
+
