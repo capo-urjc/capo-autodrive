@@ -7,10 +7,10 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.functional import resize
-from src.dataloaders.utils import sensor_code
+from .utils import sensor_code
 import json
 
-from src.dataloaders.transformations import RecordsTransform, ImageNormalization
+from .transformations import RecordsTransform, ImageNormalization
 from torchvision import transforms
 
 class AutodriveDataset(Dataset):
@@ -18,20 +18,22 @@ class AutodriveDataset(Dataset):
     Clase para cargar un dataset personalizado basado en un archivo CSV de configuración.
     """
 
-    def __init__(self, csv_file, seq_len=5, transform=None, sensors=['rgb_f'], use_encoded_images=False):
+    def __init__(self, csv_file, subset='train', seq_len=5, transform=None, sensors=['rgb_f'], use_encoded_images=False):
         """
         Inicializa el dataset.
 
         Parameters:
         - csv_file (str): Path to the csv folder with route loading information
+        - subset (str): Subset to be used: 'train' or 'test'
         - seq_len (int): Sequence length
         - transform (callable, optional): Transformation to apply to data
         - sensors (list(str)): List of sensors to load from src.dataloaders.utils import sensor_code
         """
+        self.subset = 'TRAIN' if subset.lower() == 'train' else 'TEST'
         self.seq_len = seq_len
         self.transform = transform
         self.data_frame = self.process_dataframe(csv_file)
-        self.n_samples =  self.data_frame['File Count'].sum() - seq_len
+        self.n_samples =  self.data_frame['File Count'].sum() - (seq_len)
 
         self.sensors = sensors
         self.use_encoded_images = use_encoded_images
@@ -40,7 +42,7 @@ class AutodriveDataset(Dataset):
 
     def process_dataframe(self, csv_file):
         data_frame = pd.read_csv(csv_file)
-        data_frame = data_frame[data_frame['Select'] == True]
+        data_frame = data_frame[data_frame['Select'] == self.subset]
         data_frame['Cumulative Count'] = data_frame['File Count'].cumsum()
         return data_frame
 
@@ -63,11 +65,11 @@ class AutodriveDataset(Dataset):
         selected_row = self.data_frame[self.data_frame['Cumulative Count'] >= idx].iloc[0]  # Find the folder where this random number falls within the cumulative count
         folder_path = selected_row['Folder Path']  # Extract the folder path and the image index within that folder
         folder_file_count = selected_row['File Count']  # Calculate the starting index within the folder
-        start_index_within_folder = int(idx - (selected_row['Cumulative Count'] - folder_file_count))
+        start_index_within_folder = int(idx - (selected_row['Cumulative Count'] - folder_file_count) - 1)
 
         # Adjust the starting index if it exceeds the folder boundary when adding seq_len
-        if start_index_within_folder + self.seq_len > folder_file_count:
-            start_index_within_folder = folder_file_count - self.seq_len  # Shift to the last possible sequence within the folder
+        if start_index_within_folder + self.seq_len >= folder_file_count:
+            start_index_within_folder = folder_file_count - self.seq_len - 1 # Shift to the last possible sequence within the folder
 
         # Define the sequence range
         sequence_indices = list(range(start_index_within_folder, start_index_within_folder + self.seq_len))
@@ -94,7 +96,8 @@ class AutodriveDataset(Dataset):
                 # records = json.load(open(data_path))['records']
                 # seq = [records[i] for i in sequence_indices]
                 records = pd.read_csv(data_path)
-                seq = records.iloc[sequence_indices]
+                increased_sequence_indices = [x + 1 for x in sequence_indices]
+                seq = records.iloc[increased_sequence_indices]
 
             keys[key] = seq
 

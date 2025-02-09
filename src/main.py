@@ -4,41 +4,40 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 import wandb  # Importamos wandb
 
-from src.dataloaders.transformations import ImageNormalization, RecordsTransform
-from src.dataloaders.dataset import AutodriveDataset
-from src.models.model import Model
+from dataloaders.transformations import ImageNormalization, RecordsTransform
+from dataloaders.dataset import AutodriveDataset
+from models.model import Model
+from tqdm import tqdm
 
 # Inicialización de wandb
 wandb.init(project="autodrive-training", config={
     "learning_rate": 1e-4,
-    "epochs": 500,
-    "batch_size": 4,
-    "train_percentage": 0.8,
-    "seq_len": 5
+    "epochs": 10,
+    "batch_size": 8,
+    "seq_len": 10,
+    "csv_file": "src/config/train_routes.csv"
 })
 config = wandb.config
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-csv_file = "src/dataloaders/csv/config_folders.csv"
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Definir transformaciones
-transforms = transforms.Compose([
-    ImageNormalization(),
-    RecordsTransform()
+transform = transforms.Compose([
+    ImageNormalization(), # Esta solo se aplica si el dataset usa imágenes use_encoded_images=True
+    RecordsTransform(),
 ])
 
-# Crear el dataset y dividirlo en entrenamiento y validación
-dataset = AutodriveDataset(csv_file, seq_len=config.seq_len, transform=transforms, sensors=['rgb_f', 'records'])
-train_percentage = config.train_percentage
-train_ds, valid_ds = torch.utils.data.random_split(dataset, [int(len(dataset) * train_percentage), len(dataset) - int(len(dataset) * train_percentage)])
+# dataset = AutodriveDataset(config.csv_file, seq_len=10, transform=transform, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_lb', 'rgb_rb', 'rgb_b', 'records'], use_encoded_images=False)
+train_ds = AutodriveDataset(config.csv_file, subset='train', seq_len=config.seq_len, transform=transform, sensors=['rgb_f', 'records'], use_encoded_images=True)
+valid_ds = AutodriveDataset(config.csv_file, subset='test',  seq_len=config.seq_len, transform=transform, sensors=['rgb_f', 'records'], use_encoded_images=True)
 
-train_dl = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, pin_memory=True, drop_last=True)
-valid_dl = DataLoader(valid_ds, batch_size=config.batch_size, shuffle=False, pin_memory=True)
+train_dl = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True,  drop_last=True, num_workers=32)
+valid_dl = DataLoader(valid_ds, batch_size=config.batch_size, shuffle=False, num_workers=4)
 
 # Configurar modelo, función de pérdida y optimizador
 loss_fn = nn.L1Loss()
-model = Model(latent_features=256).to(device)
+model = Model(latent_features=256, config=config).to(device)
 opt = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 # opt = torch.optim.Adam(model.dynamic_predictor.parameters(), lr=config.learning_rate)
 
@@ -46,14 +45,22 @@ opt = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 def validate(model, valid_dl, loss_fn):
     model.eval()
     valid_loss = 0
+    euclidean_dist = 0
     with torch.no_grad():
-        for b in valid_dl:
+        for b in tqdm(valid_dl):
             imseq_batch = b['rgb_f'].to(device)
-            control_batch = b['records'].to(device)
-            y_true = control_batch[..., 0:4].float()
+            wps_batch = b['wps'].to(device)
+            y_true = wps_batch
             y_pred = model(imseq_batch)
             valid_loss += loss_fn(y_pred, y_true).item()
-    model.train()
+
+            wandb.log({"valid_loss":     epoch_loss.item()/(i+1)})
+            euclidean_dist += (y_true - y_pred).square().sum(dim=-1).sqrt().mean(dim=0)
+
+
+            for s in range(config.seq_len):
+                wandb.log({f"valid_euclidean_dist_wp_{s+1}":     euclidean_dist[s].item()/(i+1)})
+
     return valid_loss / len(valid_dl)
 
 # Entrenamiento con validación periódica
@@ -63,14 +70,18 @@ for e in range(n_epochs):
     print(f"Epoch {e + 1}/{n_epochs}")
 
     n_batches = len(train_dl)
-    mae_loss = 0
+    euclidean_dist = 0
     epoch_loss = 0
-    for i, b in enumerate(train_dl):
+
+    model.train()
+
+    # for i, b in enumerate(train_dl):
+    for i, b in tqdm(enumerate(train_dl), total=len(train_dl)):
         opt.zero_grad()
 
         imseq_batch = b['rgb_f'].to(device)
-        control_batch = b['control'].to(device)
-        y_true = control_batch[..., 0:4].float()
+        wps_batch = b['wps'].to(device)
+        y_true = wps_batch
 
         y_pred = model(imseq_batch)
 
@@ -80,20 +91,17 @@ for e in range(n_epochs):
         opt.step()
 
         epoch_loss += loss
-        mae_loss += torch.abs(y_true - y_pred).sum((0,1))
+        euclidean_dist += (y_true - y_pred).square().sum(dim=-1).sqrt().mean(dim=0)
 
         # Registrar pérdida en wandb
-        wandb.log({"train_loss":     epoch_loss.item()/(i+1)})
-        wandb.log({"break_mae":     mae_loss[0].item()/(i+1)})
-        wandb.log({"reverse_mae":   mae_loss[1].item()/(i+1)})
-        wandb.log({"steer_mae":     mae_loss[2].item()/(i+1)})
-        wandb.log({"throttle_mae":  mae_loss[3].item()/(i+1)})
-    # # Registrar pérdida en wandb
-    # wandb.log({"train_loss":    epoch_loss.item()/n_batches})
-    # wandb.log({"break_mae":     mae_loss[0].item()/n_batches})
-    # wandb.log({"reverse_mae":   mae_loss[1].item()/n_batches})
-    # wandb.log({"steer_mae":     mae_loss[2].item()/n_batches})
-    # wandb.log({"throttle_mae":  mae_loss[3].item()/n_batches})
+        if i % 100 == 0 and i != 0:
+
+            wandb.log({"train_loss":     epoch_loss.item()/(i+1)})
+            for s in range(config.seq_len):
+                wandb.log({f"train_euclidean_dist_wp_{s+1}":     euclidean_dist[s].item()/(i+1)})
+            # wandb.log({"reverse_mae":   mae_loss[1].item()/(i+1)})
+            # wandb.log({"steer_mae":     mae_loss[2].item()/(i+1)})
+            # wandb.log({"throttle_mae":  mae_loss[3].item()/(i+1)})
 
 
     if e % 10 == 0:

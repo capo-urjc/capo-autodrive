@@ -15,7 +15,7 @@ def count_files_in_camera_forward(folder_path):
     camera_forward_path = os.path.join(folder_path, "CameraForward")
     if os.path.exists(camera_forward_path) and os.path.isdir(camera_forward_path):
         # Contar archivos en la carpeta 'CameraForward'
-        return len([f for f in os.listdir(camera_forward_path) if os.path.isfile(os.path.join(camera_forward_path, f))])
+        return len([f for f in os.listdir(camera_forward_path) if '.png' in f if os.path.isfile(os.path.join(camera_forward_path, f))])
     return 0  # Retorna 0 si la carpeta 'CameraForward' no existe
 
 def generate_config_csv(root_folder, output_csv="config_folders.csv"):
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # Configuración de argumentos de línea de comando
     parser = argparse.ArgumentParser(description="Genera un archivo CSV con subcarpetas de una carpeta raíz.")
     parser.add_argument("--root_folder", type=str, default='data/dataset', help="Ruta de la carpeta raíz a explorar")
-    parser.add_argument("--output_csv", type=str, default="src/dataloaders/csv/config_folders.csv", help="Nombre del archivo CSV de salida (por defecto: config_folders.csv)")
+    parser.add_argument("--output_csv", type=str, default="src/dataloaders/config_folders.csv", help="Nombre del archivo CSV de salida (por defecto: config_folders.csv)")
 
     # Parsear los argumentos de la línea de comando
     args = parser.parse_args()
