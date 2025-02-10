@@ -169,17 +169,17 @@ files:
   recordings_folder: "data/ScenarioLogs"
 
 recordings:
-  - folder: "data/RouteLogs/0"
-    name: "Route0"
-    start_time: 0
-    duration: 0
-
-  - folder: "data/RouteLogs/1"
-    name: "Route1"
-    start_time: 0
-    duration: 0
-
   - folder: "data/RouteLogs/2"
     name: "Route2"
+    start_time: 0
+    duration: 0
+
+  - folder: "data/RouteLogs/4"
+    name: "Route4"
+    start_time: 0
+    duration: 0
+
+  - folder: "data/RouteLogs/5"
+    name: "Route5"
     start_time: 0
     duration: 0

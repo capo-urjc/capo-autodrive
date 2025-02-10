@@ -246,9 +246,9 @@ class CarlaDataGenerator(metaclass=SingletonMeta):
                         f"{v.x},{v.y},{v.z}\n")
             data_file.write(data_txt)
 
-
 if __name__ == "__main__":
     import sys
+    import click
 
     logger = logging.root
     logger.setLevel(logging.DEBUG)
@@ -269,6 +269,12 @@ if __name__ == "__main__":
     # file_handler.setFormatter(formatter)
     # logger.addHandler(file_handler)
 
-    config_path = "config.yaml"
-    data_generator = CarlaDataGenerator()
-    data_generator.run(config_file=config_path)
+    @click.command()
+    @click.option("-c", "--config", 'config_file', required=True,
+                  type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=str),
+                  help="Configuration file")
+    def main(config_file: str):
+        data_generator = CarlaDataGenerator()
+        data_generator.run(config_file=config_file)
+
+    main()
