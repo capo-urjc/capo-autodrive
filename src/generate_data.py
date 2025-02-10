@@ -123,7 +123,6 @@ SENSORS = [
             'bp': 'sensor.other.radar',
             'x': 0.7, 'y': 0.0, 'z': 1.60, 'roll': 0.0, 'pitch': 0.0, 'yaw': 0.0,
             'points_per_second': 1500, 'range': 100
-
         }
     ],
     [
