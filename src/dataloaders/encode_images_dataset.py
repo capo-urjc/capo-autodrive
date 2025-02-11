@@ -8,32 +8,32 @@ from torchvision import transforms
 from tqdm import tqdm
 from transformations import ImageNormalization
 from torch.utils.data import DataLoader, Dataset
+from src.models.encoders import Dinov2Enc
 
-
-class Dinov2Enc(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.backbone_model = 'dinov2_vitb14_reg_lc'
-        # self.dino = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
-        self.dino = torch.hub.load('facebookresearch/dinov2', self.backbone_model)
-    def center_crop_tensor(self, img_tensor, output_size):
-        _, _, h, w = img_tensor.shape
-        if isinstance(output_size, int):
-            output_size = (output_size, output_size)
-        new_h, new_w = output_size
-        top = (h - new_h) // 2
-        left = (w - new_w) // 2
-        return img_tensor[:, :, top:top + new_h, left:left + new_w]
-
-    def forward(self, x):
-        b, s, c, h, w = x.shape
-        x = x.view(b * s, c, h, w)
-        patch_size = getattr(self.dino, "patch_size", getattr(getattr(self.dino, "backbone", None), "patch_size", None))
-        output_size = (patch_size * (h // patch_size), patch_size * (w // patch_size))
-        x_resized = self.center_crop_tensor(x, output_size=output_size)
-        latent = self.dino(x_resized)
-        latent = latent.reshape(b, s, -1)
-        return latent
+# class Dinov2Enc(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.backbone_model = 'dinov2_vitb14_reg_lc'
+#         # self.dino = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+#         self.dino = torch.hub.load('facebookresearch/dinov2', self.backbone_model)
+#     def center_crop_tensor(self, img_tensor, output_size):
+#         _, _, h, w = img_tensor.shape
+#         if isinstance(output_size, int):
+#             output_size = (output_size, output_size)
+#         new_h, new_w = output_size
+#         top = (h - new_h) // 2
+#         left = (w - new_w) // 2
+#         return img_tensor[:, :, top:top + new_h, left:left + new_w]
+#
+#     def forward(self, x):
+#         b, s, c, h, w = x.shape
+#         x = x.view(b * s, c, h, w)
+#         patch_size = getattr(self.dino, "patch_size", getattr(getattr(self.dino, "backbone", None), "patch_size", None))
+#         output_size = (patch_size * (h // patch_size), patch_size * (w // patch_size))
+#         x_resized = self.center_crop_tensor(x, output_size=output_size)
+#         latent = self.dino(x_resized)
+#         latent = latent.reshape(b, s, -1)
+#         return latent
 
 
 class ImageDataset(Dataset):
