@@ -1,0 +1,7 @@
+Select,Folder Path,File Count
+TRAIN,data/dataset/debug/Accident_debug1,718
+TRAIN,data/dataset/debug/Route0,36858
+TRAIN,data/dataset/debug/Route1,29209
+TRAIN,data/dataset/debug/Route2,51493
+TRAIN,data/dataset/debug/Route4,39942
+TEST,data/dataset/debug/Route5,47325

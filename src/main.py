@@ -11,16 +11,15 @@ from tqdm import tqdm
 
 # Inicialización de wandb
 wandb.init(project="autodrive-training", config={
-    "learning_rate": 1e-4,
-    "epochs": 10,
+    "learning_rate": 0.5e-4,
+    "epochs": 20,
     "batch_size": 8,
-    "seq_len": 10,
+    "seq_len": 12,
     "csv_file": "src/config/train_routes.csv"
 })
 config = wandb.config
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Definir transformaciones
 transform = transforms.Compose([
@@ -32,34 +31,32 @@ transform = transforms.Compose([
 train_ds = AutodriveDataset(config.csv_file, subset='train', seq_len=config.seq_len, transform=transform, sensors=['rgb_f', 'records'], use_encoded_images=True)
 valid_ds = AutodriveDataset(config.csv_file, subset='test',  seq_len=config.seq_len, transform=transform, sensors=['rgb_f', 'records'], use_encoded_images=True)
 
-train_dl = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True,  drop_last=True, num_workers=32)
-valid_dl = DataLoader(valid_ds, batch_size=config.batch_size, shuffle=False, num_workers=4)
+train_dl = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=32)
+valid_dl = DataLoader(valid_ds, batch_size=config.batch_size, shuffle=False, pin_memory=True, num_workers=8)
 
 # Configurar modelo, función de pérdida y optimizador
 loss_fn = nn.L1Loss()
 model = Model(latent_features=256, config=config).to(device)
 opt = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-# opt = torch.optim.Adam(model.dynamic_predictor.parameters(), lr=config.learning_rate)
 
 # Función para calcular la pérdida en validación
-def validate(model, valid_dl, loss_fn):
+def validate(model, valid_dl, loss_fn, epoch):
     model.eval()
     valid_loss = 0
     euclidean_dist = 0
     with torch.no_grad():
-        for b in tqdm(valid_dl):
+        for i, b in tqdm(enumerate(valid_dl), total=len(valid_dl)):
             imseq_batch = b['rgb_f'].to(device)
-            wps_batch = b['wps'].to(device)
-            y_true = wps_batch
+            kps_batch = b['kps'].to(device)
+            y_true = kps_batch
             y_pred = model(imseq_batch)
             valid_loss += loss_fn(y_pred, y_true).item()
 
-            wandb.log({"valid_loss":     epoch_loss.item()/(i+1)})
             euclidean_dist += (y_true - y_pred).square().sum(dim=-1).sqrt().mean(dim=0)
 
-
-            for s in range(config.seq_len):
-                wandb.log({f"valid_euclidean_dist_wp_{s+1}":     euclidean_dist[s].item()/(i+1)})
+        wandb.log({"valid_loss": valid_loss / len(valid_dl), "epoch": epoch})
+        for s in range(config.seq_len):
+            wandb.log({f"valid_euclidean_dist_kp_{s+1}": euclidean_dist[s].item() / len(valid_dl), "epoch": epoch})
 
     return valid_loss / len(valid_dl)
 
@@ -75,13 +72,12 @@ for e in range(n_epochs):
 
     model.train()
 
-    # for i, b in enumerate(train_dl):
     for i, b in tqdm(enumerate(train_dl), total=len(train_dl)):
         opt.zero_grad()
 
         imseq_batch = b['rgb_f'].to(device)
-        wps_batch = b['wps'].to(device)
-        y_true = wps_batch
+        kps_batch = b['kps'].to(device)
+        y_true = kps_batch
 
         y_pred = model(imseq_batch)
 
@@ -90,27 +86,19 @@ for e in range(n_epochs):
         loss.backward()
         opt.step()
 
-        epoch_loss += loss
+        epoch_loss += loss.item()
         euclidean_dist += (y_true - y_pred).square().sum(dim=-1).sqrt().mean(dim=0)
 
-        # Registrar pérdida en wandb
         if i % 100 == 0 and i != 0:
-
-            wandb.log({"train_loss":     epoch_loss.item()/(i+1)})
+            wandb.log({"train_loss": epoch_loss / (i+1), "epoch": e}, step=i+e*len(train_dl))
             for s in range(config.seq_len):
-                wandb.log({f"train_euclidean_dist_wp_{s+1}":     euclidean_dist[s].item()/(i+1)})
-            # wandb.log({"reverse_mae":   mae_loss[1].item()/(i+1)})
-            # wandb.log({"steer_mae":     mae_loss[2].item()/(i+1)})
-            # wandb.log({"throttle_mae":  mae_loss[3].item()/(i+1)})
-
+                wandb.log({f"train_euclidean_dist_kp_{s+1}": euclidean_dist[s].item() / (i+1), "epoch": e}, step=i+e*len(train_dl))
 
     if e % 10 == 0:
-        # Validación al final de la época
-        valid_loss = validate(model, valid_dl, loss_fn)
+        valid_loss = validate(model, valid_dl, loss_fn, e)
         print(f"End of Epoch {e + 1}, Validation Loss: {valid_loss:.4f}")
-        wandb.log({"epoch_valid_loss": valid_loss})
+        wandb.log({"epoch_valid_loss": valid_loss, "epoch": e}, step=e)
 
 # Guardar el modelo en wandb
 torch.save(model.state_dict(), "model.pth")
 wandb.save("model.pth")
-

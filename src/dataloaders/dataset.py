@@ -65,11 +65,11 @@ class AutodriveDataset(Dataset):
         selected_row = self.data_frame[self.data_frame['Cumulative Count'] >= idx].iloc[0]  # Find the folder where this random number falls within the cumulative count
         folder_path = selected_row['Folder Path']  # Extract the folder path and the image index within that folder
         folder_file_count = selected_row['File Count']  # Calculate the starting index within the folder
-        start_index_within_folder = int(idx - (selected_row['Cumulative Count'] - folder_file_count) - 1)
+        start_index_within_folder = int(idx - (selected_row['Cumulative Count'] - folder_file_count) )
 
         # Adjust the starting index if it exceeds the folder boundary when adding seq_len
         if start_index_within_folder + self.seq_len >= folder_file_count:
-            start_index_within_folder = folder_file_count - self.seq_len - 1 # Shift to the last possible sequence within the folder
+            start_index_within_folder = folder_file_count - self.seq_len - 1# Shift to the last possible sequence within the folder
 
         # Define the sequence range
         sequence_indices = list(range(start_index_within_folder, start_index_within_folder + self.seq_len))
@@ -151,7 +151,7 @@ class AutodriveDataset(Dataset):
         return data_frame
 
 if __name__ == "__main__":
-    csv_file = "src/dataloaders/csv/config_folders.csv"
+    csv_file = "src/dataloaders/config_folders.csv"
     # dataset = AutodriveDataset(csv_file, seq_len=5, transform=None, sensors=['rgb_f', 'rgb_lf', 'rgb_rf', 'rgb_bev', 'gnss', 'imu', 'lidar', 'radar'])
     transform = transforms.Compose([
         ImageNormalization(),
@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     for batch in tqdm(dl):
         img = batch['rgb_f']
-        wps = batch['wps']
+        kps = batch['kps']
 
     end_time = time.time()  # End timer
 

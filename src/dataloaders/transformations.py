@@ -17,9 +17,9 @@ class RecordsTransform(object):
     def __call__(self, sample):
         records = sample['records']
 
-        wps = records[['t.x', 't.y', 't.z']]
-        wps = np.asarray((wps - wps.iloc[0]).to_numpy(), dtype=np.float32) # relative positions
-        sample['wps'] = wps
+        kps = records[['t.x', 't.y', 't.z']]
+        kps = np.asarray((kps - kps.iloc[0]).to_numpy(), dtype=np.float32) # relative positions
+        sample['kps'] = kps
 
         # sample['state'] = [] # añadir velocidad y aceleración
         del (sample)['records'] # Esto hay que quitarlo porque no se puede iterar dataframes
@@ -52,7 +52,7 @@ class ImageNormalization(object):
 
         for key in sample:
             if 'rgb' in key:
-                if sample[key].ndim == 3:
+                if sample[key].ndim == 4:
                     sample[key] = (sample[key]/self.value).astype(np.float32)
                     sample[key] = (sample[key] - np.asarray(self.stats['mean'], dtype=np.float32)[:,None,None])/ np.asarray(self.stats['std_dev'], dtype=np.float32)[:, None, None]
         return sample
