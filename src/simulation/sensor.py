@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import numpy as np
+import torch
+
+from src.simulation.tools.image_trasforms import normalize, standardize
 from src.simulation.tools import sim_logger
+from src.dataloaders.encode_images_dataset import Dinov2Enc
 import os.path
 from queue import Queue, Empty
 from threading import Thread, Lock
@@ -9,6 +14,9 @@ import carla
 from box import Box
 
 class Sensor:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    encoder_model = Dinov2Enc().to(device)
+
     def __init__(self, destination_folder: str, kwargs: dict):
         self.logger = sim_logger.get_logger(self.__class__.__name__)
 
@@ -21,6 +29,9 @@ class Sensor:
         self.roll = sensor_config.pop('roll')
         self.pitch = sensor_config.pop('pitch')
         self.yaw = sensor_config.pop('yaw')
+        self._dino_encode = sensor_config.pop('dino_encode', False) if self.bp == "sensor.camera.rgb" else False
+        self._dino_data = []
+
         self.attributes = Box(sensor_config.items())
 
         self._actor = None
@@ -54,6 +65,11 @@ class Sensor:
         self._actor.listen(self._callback_instance)
 
     def destroy(self):
+        if self._dino_encode:
+            d = np.array(self._dino_data)
+            file = f"{self._destination_folder}/dinov2_vitb14_reg_lc.npy"
+            np.save(file, d)
+
         if self._actor.is_listening:
             self._actor.stop()
 
@@ -69,7 +85,10 @@ class Sensor:
             if self.bp == 'sensor.camera.semantic_segmentation':
                 data.save_to_disk(file, carla.ColorConverter.CityScapesPalette)
             else:
-                data.save_to_disk(file)
+                if self._dino_encode:
+                    self._dino_encode_image(data, frame)
+                else:
+                    data.save_to_disk(file)
         elif isinstance(data, carla.LidarMeasurement):
             sensor_file = f"{self._destination_folder}/{frame}.ply"
             data.save_to_disk(sensor_file)
@@ -107,6 +126,24 @@ class Sensor:
         else:
             raise RuntimeError(f"Sensor {self.name} data type {type(data)} can not be handled.")
 
+    def _dino_encode_image(self, image_data, frame):
+        # reshape, HWC->CHW, to tensor
+        data_tensor = torch.from_numpy(self._transform_image(image_data))
+
+        # BGR->RGB, add batch and sequence dimensions
+        data_tensor = data_tensor.permute(2, 0, 1)[None, None, ...]
+        data_tensor = data_tensor.to(Sensor.device)
+        Sensor.encoder_model.eval()
+        embedding = Sensor.encoder_model(data_tensor)
+        self._dino_data.append(embedding.detach().cpu().numpy())
+
+    def _transform_image(self, image_data):
+        data = np.array(image_data.raw_data, dtype=np.float32)
+        data = data.reshape(image_data.height, image_data.width, -1)
+        data = data[:, :, :3]
+        data = data[:, :, ::-1]
+        data = standardize(data)
+        return data
 
 class SensorCallback(object):
     def __init__(self, tag: str, sensor: Sensor, provider: SensorQueuedData):
@@ -179,14 +216,15 @@ class SensorQueuedData(object):
                 raise SensorReceivedNoData("A sensor took too long to send its data")
 
             sensor = self._sensor_objects[tag]
-            thread = Thread(target=_save_sensor, args=(sensor, data_frame - initial_frame, data))
-            threads.append(thread)
-            thread.start()
-
-            if current_threads > self._max_save_threads:
-                for t in threads:
-                    t.join()
-                threads.clear()
+            # thread = Thread(target=_save_sensor, args=(sensor, data_frame - initial_frame, data))
+            # threads.append(thread)
+            # thread.start()
+            #
+            # if current_threads > self._max_save_threads:
+            #     for t in threads:
+            #         t.join()
+            #     threads.clear()
+            sensor.save_data(data, frame)
 
         # Finish pending threads
         for t in threads:

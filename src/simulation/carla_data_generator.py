@@ -6,6 +6,7 @@ import os
 import time
 from threading import Lock
 import carla
+from tqdm import tqdm
 
 from src.simulation.tools import sim_logger
 from src.simulation.tools.config import CarlaGeneratorConfig, read_config
@@ -119,29 +120,38 @@ class CarlaDataGenerator(metaclass=SingletonMeta):
             start_time = self._world.get_snapshot().timestamp.elapsed_seconds
             start_frame = self._world.get_snapshot().frame
             total_duration = recording.duration
+            prev_time = start_time
 
             self.logger.info(f"Running the simulation replay at {start_time} seconds from starting frame {start_frame}")
-            while True:
-                current_time = self._world.get_snapshot().timestamp.elapsed_seconds
-                current_duration = current_time - start_time
-                simulation_completed_pct = round(current_duration / total_duration  * 100, 2)
-                current_frame = self._world.get_snapshot().frame
+            with tqdm(total=total_duration, bar_format="{l_bar}{bar} {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}/s]") as pbar:
+                while True:
+                    current_frame = self._world.get_snapshot().frame
 
-                # The "or" section is for debugging purposes only
-                #  or current_frame - start_frame >= 20
-                if current_duration >= total_duration:
-                    print(f">>>>> Running recorded simulation frame [{current_frame - start_frame}]: "
-                          f"100.00%  completed  <<<<<", flush=True)
-                    break
+                    sensor_data_provider.save_sensors(current_frame, start_frame)
+                    self._save_ego_data(ego_vehicle=hero, start_frame=start_frame, current_frame=current_frame,
+                                        destination_folder=recording_data_folder)
 
-                sensor_data_provider.save_sensors(current_frame, start_frame)
-                self._save_ego_data(ego_vehicle=hero, start_frame=start_frame, current_frame=current_frame,
-                                    destination_folder=recording_data_folder)
+                    current_time = self._world.get_snapshot().timestamp.elapsed_seconds
+                    current_duration = current_time - start_time
 
-                print(f">>>>>  Running recorded simulation frame [{current_frame - start_frame}]:"
-                      f" {simulation_completed_pct:3.2f}%  completed  <<<<<", end="\r", flush=True)
+                    time_delta = current_time - prev_time
+                    prev_time = current_time
+                    simulation_completed_pct = round(current_duration / total_duration  * 100, 2)
 
-                self._world.tick()
+                    remaining_time = total_duration - pbar.n
+                    pbar.update(min(time_delta, remaining_time))
+
+                    # The "or" section is for debugging purposes only
+                    #  or current_frame - start_frame >= 20
+                    if current_duration >= total_duration:
+                        # print(f">>>>> Running recorded simulation frame [{current_frame - start_frame}]: "
+                        #       f"100.00%  completed  <<<<<", flush=True)
+                        break
+
+                    # print(f">>>>>  Running recorded simulation frame [{current_frame - start_frame}]:"
+                    #       f" {simulation_completed_pct:3.2f}%  completed  <<<<<", end="\r", flush=True)
+
+                    self._world.tick()
 
             self._reset_world()
 
@@ -241,7 +251,7 @@ class CarlaDataGenerator(metaclass=SingletonMeta):
             a = ego_vehicle.get_acceleration()
             data_txt = (f"{current_frame - start_frame},{current_frame},{t.location.x},{t.location.y},{t.location.z},"
                         f"{t.rotation.yaw},{t.rotation.pitch},{t.rotation.roll},"
-                        f"{a.x},{a.y},{a.z}"
+                        f"{a.x},{a.y},{a.z},"
                         f"{av.x},{av.y},{av.z},"
                         f"{v.x},{v.y},{v.z}\n")
             data_file.write(data_txt)

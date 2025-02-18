@@ -10,6 +10,7 @@ sensors:
     roll: 0.0
     pitch: 0.0
     yaw: 0.0
+    dino_encode: True
 
   - name: CameraRightBackward
     bp: sensor.camera.rgb
@@ -22,6 +23,7 @@ sensors:
     roll: 0.0
     pitch: 0.0
     yaw: 140.0
+    dino_encode: True
 
   - name: CameraLeftBackward
     bp: sensor.camera.rgb
@@ -34,6 +36,7 @@ sensors:
     roll: 0.0
     pitch: 0.0
     yaw: -140.0
+    dino_encode: True
 
   - name: CameraRightForward
     bp: sensor.camera.rgb
@@ -46,6 +49,7 @@ sensors:
     roll: 0.0
     pitch: 0.0
     yaw: 60.0
+    dino_encode: True
 
   - name: CameraLeftForward
     bp: sensor.camera.rgb
@@ -58,6 +62,7 @@ sensors:
     roll: 0.0
     pitch: 0.0
     yaw: -60.0
+    dino_encode: True
 
   - name: CameraBackward
     bp: sensor.camera.rgb
@@ -70,6 +75,7 @@ sensors:
     roll: 0.0
     pitch: 0.0
     yaw: 180.0
+    dino_encode: True
 
   - name: CameraBEV
     bp: sensor.camera.semantic_segmentation
@@ -168,18 +174,45 @@ files:
   destination_folder: "data/dataset/debug"
   recordings_folder: "data/ScenarioLogs"
 
+#recordings:
+#  - folder: "data/ScenarioLogs/Accident"
+#    name: "Accident_debug2"
+#    start_time: 0
+#    duration: 0
+
 recordings:
-  - folder: "data/RouteLogs/2"
-    name: "Route2"
+#  - folder: "data/RouteLogs/6"
+#    name: "Route6"
+#    start_time: 0
+#    duration: 0
+#
+#  - folder: "data/RouteLogs/7"
+#    name: "Route7"
+#    start_time: 0
+#    duration: 0
+#
+#  - folder: "data/RouteLogs/9"
+#    name: "Route9"
+#    start_time: 0
+#    duration: 0
+#
+#  - folder: "data/RouteLogs/10"
+#    name: "Route10"
+#    start_time: 0
+#    duration: 0
+#
+#  - folder: "data/RouteLogs/13"
+#    name: "Route13"
+#    start_time: 0
+#    duration: 0
+#
+#  - folder: "data/RouteLogs/20"
+#    name: "Route20"
+#    start_time: 0
+#    duration: 0
+
+  - folder: "data/RouteLogs/29"
+    name: "Route29"
     start_time: 0
     duration: 0
 
-  - folder: "data/RouteLogs/4"
-    name: "Route4"
-    start_time: 0
-    duration: 0
-
-  - folder: "data/RouteLogs/5"
-    name: "Route5"
-    start_time: 0
-    duration: 0

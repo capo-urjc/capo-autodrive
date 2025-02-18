@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from torchvision import transforms
 from tqdm import tqdm
-from transformations import ImageNormalization
+from src.dataloaders.transformations import ImageNormalization
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -148,7 +148,9 @@ def read_config_folders(csv_file):
     else:
         print("Error: 'Folder Path' column not found in CSV file.")
 
-# Example usage
-# mean_std = compute_mean_std("src/dataloaders/csv/config_folders.csv")
-# print(mean_std)
-all_images = read_config_folders("src/dataloaders/csv/config_folders.csv")
+
+if __name__=="__main_":
+    # Example usage
+    # mean_std = compute_mean_std("src/dataloaders/csv/config_folders.csv")
+    # print(mean_std)
+    all_images = read_config_folders("src/dataloaders/csv/config_folders.csv")
