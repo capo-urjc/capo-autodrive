@@ -230,8 +230,10 @@ class DualControl(object):
         self._joystick = pygame.joystick.Joystick(0)
         self._joystick.init()
 
+        self.t_cmd_zero = self._joystick.get_axis(1)
+
         self._parser = ConfigParser()
-        self._parser.read('wheel_config.ini')
+        self._parser.read('config\wheel_config_driving_force.ini')
         self._steer_idx = int(
             self._parser.get('G29 Racing Wheel', 'steering_wheel'))
         self._throttle_idx = int(
@@ -240,6 +242,13 @@ class DualControl(object):
         self._reverse_idx = int(self._parser.get('G29 Racing Wheel', 'reverse'))
         self._handbrake_idx = int(
             self._parser.get('G29 Racing Wheel', 'handbrake'))
+
+    def _throttle_adjust(self, value):
+        value = value + 0.21
+        if value >= 0.0:
+            return value / 0.63, True
+        elif value < 0.0:
+            return abs(value) / 0.57, False
 
     def parse_events(self, world, clock):
         for event in pygame.event.get():
@@ -256,7 +265,7 @@ class DualControl(object):
                     world.next_weather()
                 elif event.button == self._reverse_idx:
                     self._control.gear = 1 if self._control.reverse else -1
-                elif event.button == 23:
+                elif event.button == 7:
                     world.camera_manager.next_sensor()
 
             elif event.type == pygame.KEYUP:
@@ -332,20 +341,27 @@ class DualControl(object):
         K1 = 1.0  # 0.55
         steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
 
-        K2 = 1.6  # 1.6
-        throttleCmd = K2 + (2.05 * math.log10(
-            -0.7 * jsInputs[self._throttle_idx] + 1.4) - 1.2) / 0.92
-        if throttleCmd <= 0:
-            throttleCmd = 0
-        elif throttleCmd > 1:
-            throttleCmd = 1
+        t_cmd, throttle = self._throttle_adjust(jsInputs[self._throttle_idx])
+        brakeCmd = t_cmd if not throttle else 0
+        throttleCmd = t_cmd if throttle else 0
 
-        brakeCmd = 1.6 + (2.05 * math.log10(
-            -0.7 * jsInputs[self._brake_idx] + 1.4) - 1.2) / 0.92
-        if brakeCmd <= 0:
-            brakeCmd = 0
-        elif brakeCmd > 1:
-            brakeCmd = 1
+        # if t_cmd < 0.0:
+        #     # K2 = 1.6  # 1.6
+        #     # throttleCmd = K2 + (2.05 * math.log10(
+        #     #     -0.7 * (-t_cmd) + 1.4) - 1.2) / 0.92
+        #     throttleCmd = self._throttle_adjust(t_cmd)
+        #     if throttleCmd <= 0:
+        #         throttleCmd = 0
+        #     elif throttleCmd > 1:
+        #         throttleCmd = 1
+        #
+        # else:
+        #     brakeCmd = 1.6 + (2.05 * math.log10(
+        #         -0.7 * t_cmd + 1.4) - 1.2) / 0.92
+        #     if brakeCmd <= 0:
+        #         brakeCmd = 0
+        #     elif brakeCmd > 1:
+        #         brakeCmd = 1
 
         self._control.steer = steerCmd
         self._control.brake = brakeCmd
@@ -694,6 +710,8 @@ class CameraManager(object):
         for item in self.sensors:
             bp = bp_library.find(item[0])
             if item[0].startswith('sensor.camera'):
+                # bp.set_attribute('image_size_x', str(hud.dim[0]))
+                # bp.set_attribute('image_size_y', str(hud.dim[1]))
                 bp.set_attribute('image_size_x', str(hud.dim[0]))
                 bp.set_attribute('image_size_y', str(hud.dim[1]))
             elif item[0].startswith('sensor.lidar'):
@@ -760,6 +778,8 @@ class CameraManager(object):
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
             array = array[:, :, ::-1]
+            # array = np.transpose(array, (1, 0, 2))
+            # self.surface = pygame.surfarray.make_surface(array)
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
@@ -835,7 +855,7 @@ def main():
     argparser.add_argument(
         '--res',
         metavar='WIDTHxHEIGHT',
-        default='3750x1040',
+        default='1280x720',
         help='window resolution (default: 1280x720)')
     argparser.add_argument(
         '--filter',
